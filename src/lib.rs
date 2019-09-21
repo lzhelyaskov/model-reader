@@ -4,6 +4,9 @@ pub mod md2;
 #[allow(non_camel_case_types)]
 type vec3_t = [f32; 3];
 
+pub const NORMALS: [[f32; 3]; 162] = include!("normals.txt");
+pub const COLORMAP: [[u8; 3]; 256] = include!("colormap.txt");
+
 #[derive(Debug)]
 pub struct Error {
     desc: String,

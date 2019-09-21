@@ -25,16 +25,21 @@ pub struct Header {
     pub num_tris: i32,
     pub num_frames: i32,
 
-    pub synctype: i32,
+    pub synctype: i32, // 0 synchron. 1 random
     pub flags: i32,
     pub size: f32,
 }
 
+/// basicaly a bitmap
+/// width and height are stored in header
+/// each item of data vector is an index to 
+/// color map super::COLORMAP
 pub struct Skin {
     pub group: i32, // 0
     pub data: Vec<u8>,
 }
 
+// TODO: implement this
 #[allow(dead_code)]
 pub struct GroupSkin {
     pub group: i32, // 1
@@ -43,6 +48,10 @@ pub struct GroupSkin {
     pub data: Vec<u8>,
 }
 
+/// onseam > 0 means the coordinate is on the edge
+/// between front and back parts of the texture
+/// if the triangle is on the back (facefront = 0)
+/// half of thr texture width must be added to 's' value
 pub struct TexCoord {
     pub onseam: i32,
     pub s: i32,
@@ -51,12 +60,12 @@ pub struct TexCoord {
 
 pub struct Triangle {
     pub facefront: i32, // 0-backface. 0<>frontface
-    pub vertex: [i32; 3],
+    pub vertex: [i32; 3], // index to SimpleFrame::verts
 }
 
 pub struct Vertex {
-    pub v: [u8; 3],
-    pub normal_index: u8,
+    pub v: [u8; 3], // to uncompress: real[i] = (scale[i] * vertex[i]) + translate[i];
+    pub normal_index: u8, // index to super::NORMALS
 }
 
 pub struct SimpleFrame {
@@ -71,6 +80,7 @@ pub struct Frame {
     pub frame: SimpleFrame,
 }
 
+// TODO: implement this
 #[allow(dead_code)]
 pub struct GroupFrame {
     pub type_: i32, // if !0
