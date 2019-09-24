@@ -10,9 +10,62 @@ pub const MAX_TEXCOORDS: u16 = 2048;
 pub const MAX_FRAMES: u16 = 512;
 pub const MAX_SKINS: u16 = 32;
 
+pub const ANIMATIONS: [[u8; 3]; 21] = [
+    // first, last, fps
+    [0, 39, 9],     // STAND
+    [40, 45, 10],   // RUN
+    [46, 53, 10],   // ATTACK
+    [54, 57, 7],    // PAIN_A
+    [58, 61, 7],    // PAIN_B
+    [62, 65, 7],    // PAIN_C
+    [66, 71, 7],    // JUMP
+    [72, 83, 7],    // FLIP
+    [84, 94, 7],    // SALUTE
+    [95, 111, 10],  // FALLBACK
+    [112, 122, 7],  // WAVE
+    [123, 134, 6],  // POINT
+    [135, 153, 10], // CROUCH_STAND
+    [154, 159, 7],  // CROUCH_WALK
+    [160, 168, 10], // CROUCH_ATTACK
+    [196, 172, 7],  // CROUCH_PAIN
+    [173, 177, 5],  // CROUCH_DEATH
+    [178, 183, 7],  // DEATH_FALLBACK
+    [184, 189, 7],  // DEATH_FALLFORWARD
+    [190, 197, 7],  // DEATH_FALLBACKSLOW
+    [198, 198, 5],  // BOOM
+];
+
+#[allow(non_camel_case_types)]
+pub enum Animation {
+    STAND = 0,
+    RUN,
+    ATTACK,
+    PAIN_A,
+    PAIN_B,
+    PAIN_C,
+    JUMP,
+    FLIP,
+    SALUTE,
+    FALLBACK,
+    WAVE,
+    POINT,
+    CROUCH_STAND,
+    CROUCH_WALK,
+    CROUCH_ATTACK,
+    CROUCH_PAIN,
+    CROUCH_DEATH,
+    DEATH_FALLBACK,
+    DEATH_FALLFORWARD,
+    DEATH_FALLBACKSLOW,
+    BOOM,
+
+    MAX_ANIMATIONS = 198,
+}
+
 #[allow(non_camel_case_types)]
 type skin_name_t = [u8; 64];
 
+#[derive(PartialEq, Debug)]
 pub enum CommandType {
     Fan,
     Strip,
@@ -29,11 +82,12 @@ pub struct Command {
     pub packets: Vec<CommandPacket>,
 }
 
+#[derive(Debug)]
 enum NextCommand {
     Typ,
-    S(CommandType, i32),
-    T(CommandType, i32, f32),
-    I(CommandType, i32, f32, f32),
+    S(CommandType, u32),
+    T(CommandType, u32, f32),
+    I(CommandType, u32, f32, f32),
 }
 
 pub const HEADER_IDENT: i32 = 844121161;
@@ -134,6 +188,7 @@ impl Model {
 
         Ok(skin_names)
     }
+
     fn read_texcoords<T: Read + Seek>(reader: &mut T, header: &Header) -> Result<Vec<TexCoord>> {
         let mut texcoords = Vec::<TexCoord>::new();
         reader
@@ -153,6 +208,7 @@ impl Model {
 
         Ok(texcoords)
     }
+
     fn read_faces<T: Read + Seek>(reader: &mut T, header: &Header) -> Result<Vec<Triangle>> {
         let mut faces = Vec::<Triangle>::new();
         reader
@@ -185,6 +241,7 @@ impl Model {
             };
             faces.push(triangle);
         }
+
         Ok(faces)
     }
 
@@ -201,23 +258,26 @@ impl Model {
                     let n = reader
                         .read_i32::<LittleEndian>()
                         .map_err(|e| Error::io(e, "failed to read 'n'."))?;
+                    if n == 0 {
+                        break;
+                    }
                     state = if n > 0 {
-                        NextCommand::S(CommandType::Fan, n)
+                        NextCommand::S(CommandType::Fan, n.abs() as u32)
                     } else {
-                        NextCommand::S(CommandType::Strip, -n)
+                        NextCommand::S(CommandType::Strip, n.abs() as u32)
                     };
                 }
                 NextCommand::S(typ, n) => {
                     let s = reader
                         .read_f32::<LittleEndian>()
                         .map_err(|e| Error::io(e, "failed to read 's'."))?;
-                    state = NextCommand::T(typ, n - 1, s);
+                    state = NextCommand::T(typ, n, s);
                 }
                 NextCommand::T(typ, n, s) => {
                     let t = reader
                         .read_f32::<LittleEndian>()
                         .map_err(|e| Error::io(e, "failed to read 't'."))?;
-                    state = NextCommand::I(typ, n - 1, s, t);
+                    state = NextCommand::I(typ, n, s, t);
                 }
                 NextCommand::I(typ, n, s, t) => {
                     let i = reader
@@ -226,7 +286,7 @@ impl Model {
                     let cmd = CommandPacket { s: s, t: t, i: i };
                     packets.push(cmd);
 
-                    state = if n == 0 {
+                    state = if n - 1 == 0 {
                         let command = Command {
                             typ: typ,
                             packets: std::mem::replace(&mut packets, Vec::<CommandPacket>::new()),
@@ -239,8 +299,10 @@ impl Model {
                 }
             }
         }
+
         Ok(commands)
     }
+
     fn read_frames<T: Read + Seek>(reader: &mut T, header: &Header) -> Result<Vec<Frame>> {
         let mut frames = Vec::<Frame>::new();
         reader
@@ -312,8 +374,10 @@ impl Model {
             };
             frames.push(frame);
         }
+
         Ok(frames)
     }
+
     pub fn from_reader<T: Read + Seek>(reader: &mut T) -> Result<Self> {
         let header = Self::read_header(reader)?;
         let skin_names = Self::read_skin_names(reader, &header)?;
@@ -330,5 +394,5 @@ impl Model {
             frames: frames,
             commands: commands,
         })
-    }
+    }    
 }
